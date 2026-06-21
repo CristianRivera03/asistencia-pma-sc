@@ -1,0 +1,6 @@
+POST http://localhost:3000/api/asistencia/cargar-datos
+Content-Type: text/plain
+
+COMUNIDAD SAN JUAN
+1, Juan Perez, 987654321
+2, Maria Lopez, 123456789

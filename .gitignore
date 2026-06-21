@@ -1,0 +1,26 @@
+# Dependencias
+node_modules/
+backend-asistencia/node_modules/
+frontend-asistencia/node_modules/
+
+# Base de datos local (evitar conflictos si ambos sistemas escriben datos distintos)
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+
+# Archivos temporales de subida
+uploads/
+
+# Archivos de sistema operativo
+.DS_Store
+Thumbs.db
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Entorno
+.env
+.env.local
