@@ -32,14 +32,14 @@ export default function UploadForm() {
 
       const data = await response.json();
       if (response.ok) {
-        setMessage(`✅ ${data.mensaje} (${data.total} registros)`);
+        setMessage(`Datos guardados exitosamente (${data.total} registros)`);
         setFile(null);
         setComunidad('');
       } else {
-        setMessage(`❌ Error: ${data.error}`);
+        setMessage(`Error: ${data.error}`);
       }
     } catch (error) {
-      setMessage('❌ Error de conexión al servidor.');
+      setMessage('Error de conexión al servidor.');
     } finally {
       setLoading(false);
     }
