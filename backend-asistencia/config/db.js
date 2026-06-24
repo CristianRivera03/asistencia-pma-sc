@@ -16,6 +16,11 @@ const db = new sqlite3.Database("./asistencia_v2.db", (err) => {
             scope BOOLEAN DEFAULT 0,
             fecha DATE
         )`);
+
+    db.run(`CREATE TABLE IF NOT EXISTS metas (
+            fecha DATE PRIMARY KEY,
+            meta INTEGER
+        )`);
   }
 });
 

@@ -12,7 +12,7 @@ const upload = multer({ dest: 'uploads/' });
 // 1. Cargar Datos desde un DOCX
 router.post('/cargar-datos', upload.single('archivo'), async (req, res) => {
     try {
-        const { fecha, comunidad } = req.body;
+        const { fecha, comunidad, formato } = req.body;
         const archivo = req.file;
 
         if (!archivo) return res.status(400).json({ error: 'No se proporcionó ningún archivo .docx' });
@@ -20,7 +20,7 @@ router.post('/cargar-datos', upload.single('archivo'), async (req, res) => {
 
         // Extraer DOCX a HTML para poder leer las tablas correctamente
         const { value: html } = await mammoth.convertToHtml({ path: archivo.path });
-        
+
         // Eliminar el archivo temporal
         fs.unlinkSync(archivo.path);
 
@@ -34,7 +34,7 @@ router.post('/cargar-datos', upload.single('archivo'), async (req, res) => {
 
             // Buscar todas las filas de tabla en el HTML generado
             $('tr').each((i, row) => {
-                const tds = $(row).find('td');
+                const tds = $(row).find('td, th');
                 
                 // Si la fila tiene al menos 2 columnas
                 if (tds.length >= 2) {
@@ -43,9 +43,16 @@ router.post('/cargar-datos', upload.single('archivo'), async (req, res) => {
                     const telefono = tds.length >= 3 ? $(tds[2]).text().trim() : "Sin teléfono";
 
                     // Ignorar fila de cabecera o filas vacías
-                    if (nombre === "" || col0 === "N°" || nombre.toUpperCase() === "NOMBRE COMPLETO") {
-                        return;
+                    if (nombre === "") return;
+
+                    let esCabecera = false;
+                    if (formato === 'poloros') {
+                        esCabecera = col0 === "No." || nombre.toUpperCase() === "NOMBRE" || col0.toUpperCase().replace(/\./g, '') === "NO";
+                    } else {
+                        esCabecera = col0 === "N°" || nombre.toUpperCase() === "NOMBRE COMPLETO";
                     }
+
+                    if (esCabecera) return;
 
                     stmt.run([comunidad, nombre, telefono || "Sin teléfono", fecha]);
                     insertados++;
@@ -125,6 +132,81 @@ router.put('/registros/:id', (req, res) => {
             res.status(404).json({ error: 'Registro no encontrado' });
         }
     });
+});
+
+// 4. Agregar registro manual (Protegido)
+router.post('/registro-manual', (req, res) => {
+    const { fecha, comunidad, nombre, telefono, password } = req.body;
+
+    if (password !== '022003') return res.status(401).json({ error: 'Contraseña incorrecta' });
+    if (!fecha || !comunidad || !nombre) return res.status(400).json({ error: 'Faltan campos obligatorios' });
+
+    db.run(
+        "INSERT INTO registros (comunidad, nombre, telefono, fecha) VALUES (?, ?, ?, ?)",
+        [comunidad, nombre, telefono || "Sin teléfono", fecha],
+        function (err) {
+            if (err) return res.status(500).json({ error: 'Error al agregar registro' });
+            
+            const newRecord = { id: this.lastID, comunidad, nombre, telefono: telefono || "Sin teléfono", fecha, asistio: 0, entrevistado: 0, scope: 0 };
+            
+            const io = req.app.get('io');
+            if (io) io.emit('nuevo_registro', newRecord);
+
+            res.json({ mensaje: 'Agregado correctamente', registro: newRecord });
+        }
+    );
+});
+
+// 5. Eliminar registro (Protegido)
+router.delete('/registros/:id', (req, res) => {
+    const { id } = req.params;
+    const { password } = req.body;
+
+    if (password !== '022003') return res.status(401).json({ error: 'Contraseña incorrecta' });
+
+    db.run("DELETE FROM registros WHERE id = ?", [id], function (err) {
+        if (err) return res.status(500).json({ error: 'Error al eliminar registro' });
+        
+        if (this.changes > 0) {
+            const io = req.app.get('io');
+            if (io) io.emit('registro_eliminado', id);
+            res.json({ mensaje: 'Eliminado correctamente' });
+        } else {
+            res.status(404).json({ error: 'Registro no encontrado' });
+        }
+    });
+});
+
+// 6. Obtener meta del día
+router.get('/metas', (req, res) => {
+    const { fecha } = req.query;
+    if (!fecha) return res.status(400).json({ error: 'Falta fecha' });
+
+    db.get("SELECT meta FROM metas WHERE fecha = ?", [fecha], (err, row) => {
+        if (err) return res.status(500).json({ error: 'Error al obtener meta' });
+        res.json({ meta: row ? row.meta : 0 });
+    });
+});
+
+// 7. Actualizar meta del día (Protegido)
+router.post('/metas', (req, res) => {
+    const { fecha, meta, password } = req.body;
+
+    if (password !== '022003') return res.status(401).json({ error: 'Contraseña incorrecta' });
+    if (!fecha || meta === undefined) return res.status(400).json({ error: 'Faltan campos' });
+
+    db.run(
+        "REPLACE INTO metas (fecha, meta) VALUES (?, ?)",
+        [fecha, meta],
+        function (err) {
+            if (err) return res.status(500).json({ error: 'Error al actualizar meta' });
+            
+            const io = req.app.get('io');
+            if (io) io.emit('meta_actualizada', { fecha, meta });
+
+            res.json({ mensaje: 'Meta actualizada' });
+        }
+    );
 });
 
 module.exports = router;

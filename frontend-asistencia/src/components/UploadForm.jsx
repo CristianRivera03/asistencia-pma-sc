@@ -5,6 +5,7 @@ export default function UploadForm() {
   const [file, setFile] = useState(null);
   const [fecha, setFecha] = useState(new Date().toISOString().split('T')[0]);
   const [comunidad, setComunidad] = useState('');
+  const [formato, setFormato] = useState('lislique'); // Nuevo estado para el formato
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
 
@@ -22,6 +23,7 @@ export default function UploadForm() {
     formData.append('archivo', file);
     formData.append('fecha', fecha);
     formData.append('comunidad', comunidad);
+    formData.append('formato', formato); // Enviar el formato al backend
 
     try {
       const API_URL = `http://${window.location.hostname}:3000`;
@@ -51,6 +53,35 @@ export default function UploadForm() {
         <h2 className="card-title text-2xl mb-4">Cargar Lista Diaria</h2>
         
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          
+          <div className="form-control w-full">
+            <label className="label"><span className="label-text font-semibold">Formato del Documento</span></label>
+            <div className="flex gap-4 mt-1">
+              <label className="cursor-pointer flex items-center gap-2">
+                <input 
+                  type="radio" 
+                  name="formato" 
+                  className="radio radio-primary" 
+                  value="lislique"
+                  checked={formato === 'lislique'}
+                  onChange={(e) => setFormato(e.target.value)}
+                />
+                <span>Lislique</span>
+              </label>
+              <label className="cursor-pointer flex items-center gap-2">
+                <input 
+                  type="radio" 
+                  name="formato" 
+                  className="radio radio-secondary" 
+                  value="poloros"
+                  checked={formato === 'poloros'}
+                  onChange={(e) => setFormato(e.target.value)}
+                />
+                <span>Poloros</span>
+              </label>
+            </div>
+          </div>
+
           <div className="form-control w-full">
             <label className="label"><span className="label-text font-semibold">Archivo DOCX</span></label>
             <input 
