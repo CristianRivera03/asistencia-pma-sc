@@ -92,10 +92,10 @@ router.get('/registros', (req, res) => {
     });
 });
 
-// 3. Actualizar estado (Asistencia, Entrevistado, Scope)
+// 3. Actualizar estado (Asistencia, Entrevistado, Scope) o Datos (Nombre, Comunidad, Telefono)
 router.put('/registros/:id', (req, res) => {
     const { id } = req.params;
-    const { asistio, entrevistado, scope } = req.body;
+    const { asistio, entrevistado, scope, nombre, comunidad, telefono } = req.body;
 
     // Actualizamos solo los campos que vienen en el body (permitiendo false)
     let campos = [];
@@ -104,6 +104,9 @@ router.put('/registros/:id', (req, res) => {
     if (asistio !== undefined) { campos.push("asistio = ?"); valores.push(asistio ? 1 : 0); }
     if (entrevistado !== undefined) { campos.push("entrevistado = ?"); valores.push(entrevistado ? 1 : 0); }
     if (scope !== undefined) { campos.push("scope = ?"); valores.push(scope ? 1 : 0); }
+    if (nombre !== undefined) { campos.push("nombre = ?"); valores.push(nombre); }
+    if (comunidad !== undefined) { campos.push("comunidad = ?"); valores.push(comunidad); }
+    if (telefono !== undefined) { campos.push("telefono = ?"); valores.push(telefono); }
 
     if (campos.length === 0) return res.status(400).json({ error: 'No hay datos para actualizar' });
 

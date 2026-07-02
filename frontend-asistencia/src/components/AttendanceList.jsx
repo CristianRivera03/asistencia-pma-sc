@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { io } from 'socket.io-client';
-import { Search, Trash2, UserPlus, Target } from 'lucide-react';
+import { Search, Trash2, UserPlus, Target, Edit2, Filter } from 'lucide-react';
 
 const API_URL = `http://${window.location.hostname}:3000`;
 const socket = io(API_URL);
@@ -11,10 +11,13 @@ export default function AttendanceList() {
   const [meta, setMeta] = useState(0);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [filterType, setFilterType] = useState('todos');
   
   // Modal state
   const [showAddModal, setShowAddModal] = useState(false);
   const [newPersona, setNewPersona] = useState({ nombre: '', comunidad: '', telefono: '' });
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingPersona, setEditingPersona] = useState(null);
 
   useEffect(() => {
     fetchRegistros();
@@ -165,6 +168,40 @@ export default function AttendanceList() {
     }
   };
 
+  const handleOpenEditModal = (persona) => {
+    if (verifyPassword()) {
+      setEditingPersona(persona);
+      setShowEditModal(true);
+    }
+  };
+
+  const handleEditPersona = async (e) => {
+    e.preventDefault();
+    if (!editingPersona.nombre || !editingPersona.comunidad) return alert("Nombre y comunidad son obligatorios");
+
+    try {
+      const res = await fetch(`${API_URL}/api/asistencia/registros/${editingPersona.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nombre: editingPersona.nombre,
+          comunidad: editingPersona.comunidad,
+          telefono: editingPersona.telefono
+        })
+      });
+
+      if (res.ok) {
+        setShowEditModal(false);
+        setEditingPersona(null);
+      } else {
+        alert("Error al actualizar la persona");
+      }
+    } catch (e) {
+      console.error(e);
+      alert("Error de conexión");
+    }
+  };
+
   const handleToggle = async (id, field, currentValue) => {
     setRegistros((prev) => 
       prev.map(reg => reg.id === id ? { ...reg, [field]: !currentValue } : reg)
@@ -184,10 +221,16 @@ export default function AttendanceList() {
     }
   };
 
-  const filteredRegistros = registros.filter(reg => 
-    reg.nombre.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    reg.comunidad.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredRegistros = registros.filter(reg => {
+    const matchesSearch = reg.nombre.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                          reg.comunidad.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    if (filterType === 'entrevistados_no_pasaron') {
+      return matchesSearch && reg.entrevistado && !reg.scope;
+    }
+    
+    return matchesSearch;
+  });
 
   const grouped = filteredRegistros.reduce((acc, reg) => {
     if (!acc[reg.comunidad]) acc[reg.comunidad] = [];
@@ -228,7 +271,7 @@ export default function AttendanceList() {
         </div>
       </div>
 
-      {/* Toolbar: Search and Add Person */}
+      {/* Toolbar: Search, Filter Button and Add Person */}
       <div className="flex flex-col sm:flex-row gap-3 mb-6">
         <div className="form-control flex-[2]">
           <div className="relative">
@@ -242,6 +285,16 @@ export default function AttendanceList() {
             />
           </div>
         </div>
+        
+        <button 
+          onClick={() => setFilterType(prev => prev === 'todos' ? 'entrevistados_no_pasaron' : 'todos')}
+          className={`btn flex-1 ${filterType === 'entrevistados_no_pasaron' ? 'btn-warning' : 'btn-outline btn-warning'}`}
+          title="Ver personas entrevistadas que no cumplieron la meta (Scope)"
+        >
+          <Filter size={18} />
+          {filterType === 'entrevistados_no_pasaron' ? 'Mostrar Todos' : 'Filtro: Sin Scope'}
+        </button>
+
         <button onClick={handleOpenAddModal} className="btn btn-secondary flex-1">
           <UserPlus size={18} />
           Agregar Persona
@@ -276,13 +329,22 @@ export default function AttendanceList() {
                         <span className="text-xs sm:text-sm text-base-content/60 mt-1">Tel: {persona.telefono}</span>
                       </div>
                       
-                      <button 
-                        onClick={() => handleDelete(persona.id)} 
-                        className="btn btn-ghost btn-sm btn-circle text-error lg:opacity-0 group-hover:opacity-100 transition-opacity"
-                        title="Eliminar Registro"
-                      >
-                        <Trash2 size={18} />
-                      </button>
+                      <div className="flex gap-2 opacity-100 lg:opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button 
+                          onClick={() => handleOpenEditModal(persona)} 
+                          className="btn btn-ghost btn-sm btn-circle text-info"
+                          title="Editar Registro"
+                        >
+                          <Edit2 size={18} />
+                        </button>
+                        <button 
+                          onClick={() => handleDelete(persona.id)} 
+                          className="btn btn-ghost btn-sm btn-circle text-error"
+                          title="Eliminar Registro"
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                      </div>
                     </div>
                     
                     {/* Toggles (Móvil: Grid 3 columnas, Desktop: flex) */}
@@ -363,6 +425,50 @@ export default function AttendanceList() {
               <div className="modal-action mt-6 flex gap-2 justify-end">
                 <button type="button" className="btn btn-ghost" onClick={() => setShowAddModal(false)}>Cancelar</button>
                 <button type="submit" className="btn btn-secondary">Guardar Registro</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Modal */}
+      {showEditModal && editingPersona && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+          <div className="bg-base-100 p-6 rounded-xl w-full max-w-md shadow-2xl relative">
+            <h3 className="text-xl font-bold mb-4 flex items-center gap-2"><Edit2 size={20} className="text-info" /> Editar Persona</h3>
+            
+            <form onSubmit={handleEditPersona} className="flex flex-col gap-4">
+              <div className="form-control w-full">
+                <label className="label"><span className="label-text">Nombre Completo</span></label>
+                <input 
+                  type="text" 
+                  value={editingPersona.nombre} 
+                  onChange={e => setEditingPersona({...editingPersona, nombre: e.target.value})} 
+                  className="input input-bordered" required 
+                />
+              </div>
+              <div className="form-control w-full">
+                <label className="label"><span className="label-text">Comunidad</span></label>
+                <input 
+                  type="text" 
+                  value={editingPersona.comunidad} 
+                  onChange={e => setEditingPersona({...editingPersona, comunidad: e.target.value})} 
+                  className="input input-bordered" required 
+                />
+              </div>
+              <div className="form-control w-full">
+                <label className="label"><span className="label-text">Teléfono (Opcional)</span></label>
+                <input 
+                  type="text" 
+                  value={editingPersona.telefono} 
+                  onChange={e => setEditingPersona({...editingPersona, telefono: e.target.value})} 
+                  className="input input-bordered" 
+                />
+              </div>
+
+              <div className="modal-action mt-6 flex gap-2 justify-end">
+                <button type="button" className="btn btn-ghost" onClick={() => setShowEditModal(false)}>Cancelar</button>
+                <button type="submit" className="btn btn-info">Guardar Cambios</button>
               </div>
             </form>
           </div>

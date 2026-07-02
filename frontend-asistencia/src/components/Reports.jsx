@@ -31,6 +31,7 @@ export default function Reports() {
   const totalAsistencias = registros.filter(r => r.asistio).length;
   const totalEntrevistados = registros.filter(r => r.entrevistado).length;
   const totalScope = registros.filter(r => r.scope).length;
+  const totalEntrevistadosSinScope = registros.filter(r => r.entrevistado && !r.scope).length;
 
   const groupedStats = registros.reduce((acc, reg) => {
     if (!acc[reg.comunidad]) {
@@ -48,6 +49,7 @@ export default function Reports() {
     if (filterType === 'Asistieron') matchFilter = reg.asistio;
     else if (filterType === 'Entrevistados') matchFilter = reg.entrevistado;
     else if (filterType === 'Scope') matchFilter = reg.scope;
+    else if (filterType === 'Entrevistados sin Scope') matchFilter = reg.entrevistado && !reg.scope;
     
     if (!matchFilter) return false;
 
@@ -178,7 +180,7 @@ export default function Reports() {
               
               {/* Scrollable chips for mobile */}
               <div className="flex gap-2 overflow-x-auto pb-2 w-full max-w-[90vw] md:max-w-none">
-                {['Todos', 'Asistieron', 'Entrevistados', 'Scope'].map(f => (
+                {['Todos', 'Asistieron', 'Entrevistados', 'Scope', 'Entrevistados sin Scope'].map(f => (
                   <button 
                     key={f}
                     onClick={() => setFilterType(f)}
@@ -187,7 +189,8 @@ export default function Reports() {
                     {f} ({
                       f === 'Todos' ? totalPersonas : 
                       f === 'Asistieron' ? totalAsistencias : 
-                      f === 'Entrevistados' ? totalEntrevistados : totalScope
+                      f === 'Entrevistados' ? totalEntrevistados : 
+                      f === 'Scope' ? totalScope : totalEntrevistadosSinScope
                     })
                   </button>
                 ))}
